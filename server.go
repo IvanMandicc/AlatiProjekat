@@ -39,18 +39,19 @@ func (cs *configServer) createConfigHandler(w http.ResponseWriter, req *http.Req
 	renderJSON(w, rt)
 }
 
-func (ts *configServer) getAllHandler(w http.ResponseWriter, req *http.Request) {
+func (cs *configServer) getAllHandler(w http.ResponseWriter, req *http.Request) {
 	allTasks := []*Config{}
-	for _, v := range ts.data {
+	for _, v := range cs.data {
+		println(v)
 		allTasks = append(allTasks, v)
 	}
 
 	renderJSON(w, allTasks)
 }
 
-func (ts *configServer) getConfigHandler(w http.ResponseWriter, req *http.Request) {
+func (cs *configServer) getConfigHandler(w http.ResponseWriter, req *http.Request) {
 	id := mux.Vars(req)["id"]
-	task, ok := ts.data[id]
+	task, ok := cs.data[id]
 	if !ok {
 		err := errors.New("key not found")
 		http.Error(w, err.Error(), http.StatusNotFound)
