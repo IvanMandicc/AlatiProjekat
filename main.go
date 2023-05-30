@@ -1,14 +1,29 @@
+//Post API
+//
+//    Title: Post API
+//
+//    Schemes: http
+//    Version: 0.0.1
+//    BasePath: /
+//
+//    Produces:
+//      - application/json
+//
+// swagger:meta
+
 package main
 
 import (
 	"context"
 	"log"
+	"main/configstore"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/go-openapi/runtime/middleware"
 	"github.com/gorilla/mux"
 )
 
@@ -19,20 +34,44 @@ func main() {
 	router := mux.NewRouter()
 	router.StrictSlash(true)
 
-	server := configServer{
-		data:      map[string]*Config{},
-		dataGroup: map[string]*Group{},
+	store, err := configstore.New()
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	server := configServer{
+		store: store,
+	}
+
 	router.HandleFunc("/config/", server.createConfigHandler).Methods("POST")
-	router.HandleFunc("/configs/", server.getAllHandler).Methods("GET")
-	router.HandleFunc("/config/{id}/", server.getConfigHandler).Methods("GET")
-	router.HandleFunc("/config/{id}/", server.delConfigHandler).Methods("DELETE")
-	router.HandleFunc("/group/", server.createGroupHandler).Methods("POST")
-	router.HandleFunc("/group/{groupId}/config{id}/", server.AddConfigToGroup).Methods("PUT")
-	router.HandleFunc("/groups/", server.getAllHandler).Methods("GET")
-	router.HandleFunc("/group/{id}/", server.getGroupHandler).Methods("GET")
-	router.HandleFunc("/group/{id}/", server.delGroupHandler).Methods("DELETE")
-	router.HandleFunc("/group/{groupId}/config/{id}/", server.delConfigFromGroupHandler).Methods("DELETE")
+	router.HandleFunc("/configs/", server.getAllConfigsHandler).Methods("GET")
+	router.HandleFunc("/config/{id}/", server.getConfigByIdHandler).Methods("GET")
+	router.HandleFunc("/config/{id}/", server.deleteConfigByIdHandler).Methods("DELETE")
+	router.HandleFunc("/group/", server.createConfigGroupHandler).Methods("POST")
+	//router.HandleFunc("/group/{groupId}/config{id}/", server.AddConfigToGroup).Methods("PUT")
+	router.HandleFunc("/cfgroups/", server.getAllCfGroupsHandler).Methods("GET")
+	router.HandleFunc("/cfgroup/{id}/", server.getCfGroupByIdHandler).Methods("GET")
+	router.HandleFunc("/cfgroup/{id}/", server.deleteGroupByIdHandler).Methods("DELETE")
+	router.HandleFunc("/config/{id}/{version}", server.deleteConfigByIdAndVersionHandler).Methods("DELETE")
+	router.HandleFunc("/cfgroup/{id}/{version}/", server.deleteGroupByIdAndVersionHandler).Methods("DELETE")
+	router.HandleFunc("/cfgroup/{groupId}/{version}/config/{label}/{configId}/", server.deleteGroupConfigByLabelAndIdHandler).Methods("DELETE")
+	router.HandleFunc("/cfgroup/{id}/{version}/", server.getCfGroupByIdAndVersionHandler).Methods("GET")
+	router.HandleFunc("/cfgroup/{groupId}/{version}/config/{label}/{configId}/", server.getGroupConfigByIdAndLabelHandler).Methods("GET")
+	router.HandleFunc("/cfgroup/{groupId}/{version}/config/{label}/", server.getGroupConfigByLabelHandler).Methods("GET")
+	router.HandleFunc("/config/{id}/{version}/", server.getConfigByIdAndVersionHandler).Methods("GET")
+	router.HandleFunc("/cfgroup/{id}/config/", server.expandConfigGroupHandler).Methods("PUT")
+	//router.HandleFunc("/group/{groupId}/config/{id}/", server.delConfigFromGroupHandler).Methods("DELETE")
+	router.HandleFunc("/swagger.yaml", server.swaggerHandler).Methods("GET")
+
+	// SwaggerUI
+	optionsDevelopers := middleware.SwaggerUIOpts{SpecURL: "swagger.yaml"}
+	developerDocumentationHandler := middleware.SwaggerUI(optionsDevelopers, nil)
+	router.Handle("/docs", developerDocumentationHandler)
+
+	// ReDoc
+	// optionsShared := middleware.RedocOpts{SpecURL: "/swagger.yaml"}
+	// sharedDocumentationHandler := middleware.Redoc(optionsShared, nil)
+	// router.Handle("/docs", sharedDocumentationHandler)
 
 	// start server
 	srv := &http.Server{Addr: "0.0.0.0:8000", Handler: router}
